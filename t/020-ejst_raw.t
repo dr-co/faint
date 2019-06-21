@@ -50,3 +50,14 @@ ejst('test', 'Hello, <%= 1 + vari %> world', {'vari': 11})
     })
     .catch(unexpected_error('javascript result: variable'))
 ;
+
+ejst('test', 'Hello, <%= aa() + 1 + vari %> world', {'vari': 11})
+    .then(function(/* res */) {
+        "use strict";
+        tap.fail('await exception');
+    })
+    .catch(function(e) {
+        "use strict";
+        tap.like(e, /aa is not defined/, 'error message');
+    })
+;

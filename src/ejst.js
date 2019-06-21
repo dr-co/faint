@@ -1,5 +1,5 @@
 // vim: set tabsize=4 et */
-/* globals Promise, module */
+/* globals Promise */
 
 var ejst;
 
@@ -12,20 +12,22 @@ ejst = function(name, template, stash) {
     var args = [];
 
     for (var arg_name in stash) {
+        switch(arg_name) {
+            case '___q':
+            case '___i':
+            case 'var':
+            case 'let':
+            case 'function':
+                continue;
+        }
         body += arg_name;
         body += ', ';
         args.push(stash[arg_name]);
     }
-
     
-    body += '___q, ';
-
-    body += '___i';
-
-    body += ') { ';
+    body += '___q, ___i) { ';
     body += ejst.compile(template);
     body += '\n}; })();';
-
 
     return ejst._render(name, body, args);
 };
@@ -133,9 +135,8 @@ ejst.compile = function(template) {
 
 ejst.xmlescape = function(text) {
     "use strict";
-    
-    if (typeof(text) == 'object' && typeof(text.xmlescape) == 'function') {
-        return text.xmlescape();
+    if (typeof(text) == 'object' && typeof(text.bytestream) == 'function') {
+        return text.bytestream();
     }
     return String(text)
                 .replace(/\&/g, '&amp;')
@@ -157,7 +158,7 @@ ejst._render = function(name, btemplate, ___args) {
             );
             return;
         }
-        ___res.push(ejst.xmlescape(String(t)));
+        ___res.push(ejst.xmlescape(t));
     });
     ___args.push(function(t) {      // ___i
         if (typeof(t) == 'object' && typeof(t.then) == 'function') {
@@ -177,9 +178,9 @@ ejst._render = function(name, btemplate, ___args) {
         ___foo.apply(null, ___args);
     } catch (e) {
         if (e.stack) {
-            var line = e.stack.split(/\n/)[1];
+            var line = e.stack.split(/\n/)[0];
             if (line) {
-                var pos = /.*eval.*:(\d+):(\d+)\)$/.exec(line);
+                var pos = /.*eval.*:(\d+):(\d+)\)?$/.exec(line);
                 if (pos) {
                     return Promise.reject(
                         'Template error at "' + name + '" (at line ' + pos[1] +
@@ -194,8 +195,10 @@ ejst._render = function(name, btemplate, ___args) {
 };
 
 
-if (module) {
-    module.exports = {
-        ejst: ejst,
+ejst.bytestream = function(str) {
+    "use strict";
+    return {
+        bytestream: function() { return str; },
+        toString: function() { return str; }
     };
-}
+};
