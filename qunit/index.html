@@ -9,9 +9,20 @@
         <div id="qunit-fixture"></div>
         <script src="https://code.jquery.com/qunit/qunit-2.9.2.js"></script>
         <script src="js/jquery-3.4.1.min.js"></script>
-        <script src="../src/ejst.js"></script>
+        
+        <script src="../src/faint.js"></script>
+        <script src="../src/plugins/closure.js"></script>
+        <script src="../src/plugins/semaphore.js"></script>
+        <script src="../src/plugins/ajax.js"></script>
 
-        <script src="tests.js"></script>
+
+        <script>
+            FAINT.init();
+        </script>
+        <script src="ev.js"></script>
+        <script src="closure.js"></script>
+        <script src="semaphore.js"></script>
+        <script src="ajax.js"></script>
     </body>
 </html>
 

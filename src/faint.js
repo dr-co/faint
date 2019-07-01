@@ -1,112 +1,176 @@
-/* globals Promise, module, ejst */
+/* */
 
-function Faint() {
+var FAINT = {
+    _plugin: {},
+    _state: 'init',
+};
+
+FAINT.init = function(config) {
     "use strict";
-    var _this = this;
-    this.defaults = {
-    };
-    this.config = {
-        template_load_error: 
-            '<div class="alert alert-danger">' +
-                'Can not load template <%= name %>.' +
-                'HTTP-response: <%= http_code %>' +
-            '</div>',
-        template_error:
-            '<div class="alert alert-danger">' +
-                'Rendering error: <%= error %>' +
-            '</div>'
-    };
-    this.helpers = {
-        include: function(name, stash) {
-            return Promise.resolve(name, stash);
-        },
-    };
+    delete FAINT.init;
+    var skip, name, dep_name, i, use_plugin = {};
 
-    this.bundle = {};
+    if (!config) {
+        config = {};
 
-    this.add_helper = function(name, cb) {
-        if (name in this.helpers) {
-            throw new Error('Helper "' + name + '" has already exists');
+        for (name in FAINT._plugin) {
+            config[name] = true;
         }
-        this.helpers[name] = cb;
+    }
+
+    if (!config.hasOwnProperty('ev'))
+        config.ev = true;
+
+    for (name in config) {
+        if (!config[name])
+            continue;
+        if (typeof(config[name]) == 'boolean')
+            config[name] = {};
+        if (!FAINT._plugin.hasOwnProperty(name)) {
+            throw new Error('Unknown plugin: ' + name);
+        }
+
+        use_plugin[name] = {
+            name: name,
+            depends: this._plugin[name].depends,
+            constructor: this._plugin[name].constructor,
+            config: config[name],
+            state: 'init',
+        };
+
+        use_plugin[name].depends.push('ev');
+
+        for (i in this._plugin[name].defaults) {
+            if (use_plugin[name].config.hasOwnProperty(i))
+                continue;
+            use_plugin[name].config[i] = this._plugin[name].defaults[i];
+        }
+    }
+
+    while(true) {
+        var count = 0;
+        for (name in use_plugin) {
+            if (use_plugin[name].state != 'init')
+                continue;
+            count++;
+            skip = false;
+            for (i = 0; i < use_plugin[name].depends.length; i++) {
+                dep_name = use_plugin[name].depends[i];
+
+                if (dep_name != name) {
+                    if (use_plugin[dep_name].state == 'init') {
+                        skip = true;
+                        break;
+                    }
+                }
+            }
+            if (skip)
+                continue;
+
+            this[name] =
+                use_plugin[name].constructor('init', use_plugin[name].config);
+            use_plugin[name].state = 'created'; 
+        }
+        if (!count)
+            break;
+    }
+
+    this._state = 'created';
+};
+
+
+FAINT.plugin = function(name, constructor, defaults, depends) {
+    "use strict";
+
+    name = String(name);
+
+    if (FAINT._state != 'init') {
+        throw new Error('All plugins have to be registered before FAINT.init');
+    }
+
+    if (FAINT._plugin.hasOwnProperty(name))
+        throw new Error('Plugin "' + name + '" has already registered');
+    if (FAINT.hasOwnProperty(name))
+        throw new Error('Plugin name "' + name + '" is reserved');
+
+    if (!defaults)
+        defaults = {};
+    if (!depends)
+        depends = [];
+
+    if (typeof(constructor) != 'function') {
+        throw new Error('Plugin "' + name + '" has no constructor');
+    }
+
+    if ((typeof(depends) != 'object') || (depends.constructor !== Array)) {
+        throw new Error('Plugin "' + name + '" has broken depends: ' +
+            JSON.stringify(depends));
+    }
+
+    this._plugin[name] = {
+        name: name,
+        constructor: constructor,
+        depends: depends,
+        defaults: defaults,
+    };
+};
+
+
+FAINT.plugin('ev', function() {
+    "use strict";
+    
+    var ev = function(key) {
+        key = ev._normalize_key(key);
+        var args = [];
+        for (var i = 1; i < arguments.length; i++) {
+            args.push(arguments[i]);
+        }
+        ev._queue.push({key: key, args: args});
+        if (ev._queue.length == 1) {
+            setTimeout(ev._dispatch, 1);
+        }
     };
 
-    this.add_helper('include', function(name, stash) {
-        stash = _this._make_stash(stash);
-        return _this
-            .get_template(name)
-            .then(function(template) {
-                return ejst(name, template, stash)
-                        .then(function(rendered) {
-                            return ejst.bytestream(rendered);
-                        });
-            });
-    });
-
-    this._make_stash = function(stash) {
-        var res = {};
-        var name;
-
-        for (name in this.defaults) {
-            res[name] = this.defaults[name];
+    ev.on = function(key, dispatcher) {
+        if (typeof(dispatcher) != 'function') {
+            throw new Error('Usage: ev.on(key, callback)');
         }
-        if (stash) {
-            for (name in stash) {
-                res[name] = stash[name];
+        key = ev._normalize_key(key);
+        if (!ev._on[key])
+            ev._on[key] = [];
+        ev._on[key].push(dispatcher);
+    };
+
+    ev._dispatch = function() {
+        if (!ev._queue.length)
+            return;
+        var list = ev._queue;
+        ev._queue = [];
+
+        for (var i = 0; i < list.length; i++) {
+            var key = list[i].key;
+            if (!ev._on.hasOwnProperty(key))
+                continue;
+            for (var j = 0; j < ev._on[key].length; j++) {
+                try {
+                    ev._on[key][j].apply(key.split('::'), list[i].args);
+                } catch (e) {
+                    console.error(e);
+                }
             }
         }
-        for (name in this.helpers) {
-            res[name] = this.helpers[name];
-        }
-        return res;
     };
 
-    this.get_template = function(name) {
-        name = String(name);
-
-        if (name.match(/^\//)) {
-            name = name.substring(1);
-        }
-
-        if (name in _this.bundle) {
-            return Promise.resolve(_this.bundle[name]);
-        }
+    ev._normalize_key = function(key) {
+        if (key == null)
+            return 'null';
+        if (typeof(key.join) == 'function' && typeof(key.map) == 'function')
+            return key.map(function(a){ return String(a); }).join('::');
+        return String(key);
     };
 
-    this.render = function(name, stash) {
-        _this = this;
-        stash = this._make_stash(stash);
+    ev._queue = [];
+    ev._on = {};
 
-        var layout = stash.layout;
-        stash.layout = null;
-
-        this.get_template(name)
-            .then(function(template) {
-                return ejst(name, template, stash);
-            })
-            .then(function(rendered) {
-                if (!layout) {
-                    return rendered;
-                }
-
-                stash = _this._make_stash(stash);
-                stash.layout = null;
-                stash.content = ejst.bytestream(rendered);
-
-                return _this
-                    .get_template(layout)
-                    .then(function(ltemplate) {
-                        return ejst(layout, ltemplate, stash);
-                    });
-            });
-    };
-}
-
-
-
-
-if (module) {
-    module.exports = {
-        faint: Faint
-    };
-}
+    return ev;
+});

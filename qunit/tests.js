@@ -1,4 +1,4 @@
-/* globals Promise, QUnit, ejst */
+/* globals Promise, QUnit, ejst, Bundle */
 QUnit.test('qunit', function(assert) {
     "use strict";
     assert.expect(1);
@@ -82,4 +82,29 @@ QUnit.test('ejst', function(assert) {
         assert.notOk('No exception: ' + e);
         done();
     });
+});
+
+
+QUnit.test('bundle', function(assert) {
+    "use strict";
+
+    var bundle = new Bundle();
+    assert.ok(bundle.config.base_url, 'base url found' +
+                                        String(bundle.config.base_url));
+
+    var done = assert.async();
+
+    Promise.all([
+        bundle.get_template('alert')
+            .then(function(template) {
+                assert.ok(template, 'template loaded');
+            }),
+    ]).then(function() {
+        done();
+    })
+    .catch(function(e) {
+        assert.notOk('No exception: ' + e);
+        done();
+    });
+
 });
