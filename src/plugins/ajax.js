@@ -10,7 +10,7 @@ FAINT.plugin('ajax',
             var cfg = {};
 
             if (typeof _cfg == 'string') {
-                _cfg = {url: _cfg};
+                _cfg = {url: _cfg, method: 'GET'};
             }
 
             for (var name in _cfg) {
@@ -28,7 +28,7 @@ FAINT.plugin('ajax',
                 delete cfg.complete;
                 delete cfg.queue;
 
-                if (queue != null)
+                if (queue)
                     queue = String(queue);
 
 
@@ -37,6 +37,11 @@ FAINT.plugin('ajax',
                 };
 
                 cfg.error = function(jqXHR, textStatus, errorThrown) {
+                    switch(jqXHR.status) {
+                        case 0:
+                            jqXHR.status = 595;
+                            break;
+                    }
                     jqXHR.textStatus = textStatus;
                     jqXHR.errorThrown = errorThrown;
                     reject(jqXHR);

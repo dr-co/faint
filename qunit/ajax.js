@@ -22,6 +22,7 @@ QUnit.test('ajax', function(assert) {
     var done = assert.async();
 
     FAINT.ajax('index.html')
+
     .then(function(content) {
         assert.ok(content, 'контент получен');
     })
