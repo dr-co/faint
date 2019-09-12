@@ -43,6 +43,7 @@ FAINT.plugin('ajax',
                             break;
                     }
                     jqXHR.textStatus = textStatus;
+                    jqXHR.url = cfg.url;
                     jqXHR.errorThrown = errorThrown;
                     reject(jqXHR);
                 };

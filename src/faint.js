@@ -14,7 +14,7 @@ FAINT = {
     init: function(config) {
         "use strict";
         delete this.init;
-        var skip, name, dep_name, i, use_plugin = {};
+        var skip, name, dep_name, i, use_plugin = {}, count;
 
         if (!config) {
             config = {};
@@ -50,43 +50,54 @@ FAINT = {
                     continue;
                 use_plugin[name].config[i] = use_plugin[name].defaults[i];
             }
+        }
 
-            /* add dependencies to use_list */
-            for (i in use_plugin[name].depends) {
-                dep_name = use_plugin[name].depends[i];
-                if (config[dep_name])
-                    continue;
 
-                if (!this._plugin.hasOwnProperty(dep_name))
-                    throw new Error('Plugin "' + name +
-                                    '" depends on unknown "' + dep_name + '"');
+        for (count = 1; count; ) {
+            count = 0;
+            for (name in use_plugin) {
+                /* add dependencies to use_list */
+                for (i in use_plugin[name].depends) {
+                    dep_name = use_plugin[name].depends[i];
+                    if (use_plugin.hasOwnProperty(dep_name))
+                        continue;
+                    count++;
 
-                use_plugin[dep_name] = {
-                    name: dep_name,
-                    depends: this._plugin[dep_name].depends,
-                    config: this._plugin[dep_name].defaults,
-                    constructor: this._plugin[dep_name].constructor,
-                    state: 'init',
-                    defaults: this._plugin[name].defaults,
-                };
+                    if (!this._plugin.hasOwnProperty(dep_name))
+                        throw new Error('Plugin "' + name +
+                                        '" depends on unknown "' +
+                                        dep_name + '"');
+
+                    use_plugin[dep_name] = {
+                        name: dep_name,
+                        depends: this._plugin[dep_name].depends,
+                        config: this._plugin[dep_name].defaults,
+                        constructor: this._plugin[dep_name].constructor,
+                        state: 'init',
+                        defaults: this._plugin[name].defaults,
+                    };
+                }
+                if (count)
+                    break;
             }
         }
             
-        while(true) {
-            var count = 0;
+        for (count = 1; count; ) {
+            count = 0;
             for (name in use_plugin) {
                 if (use_plugin[name].state != 'init')
                     continue;
                 count++;
                 skip = false;
+
                 for (i = 0; i < use_plugin[name].depends.length; i++) {
                     dep_name = use_plugin[name].depends[i];
+                    if (dep_name == name)
+                        continue;
 
-                    if (dep_name != name) {
-                        if (use_plugin[dep_name].state == 'init') {
-                            skip = true;
-                            break;
-                        }
+                    if (use_plugin[dep_name].state == 'init') {
+                        skip = true;
+                        break;
                     }
                 }
                 if (skip)
@@ -103,8 +114,6 @@ FAINT = {
 
                 use_plugin[name].state = 'created'; 
             }
-            if (!count)
-                break;
         }
 
         this._state = 'created';

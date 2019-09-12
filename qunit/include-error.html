@@ -1,0 +1,17 @@
+<div class="alert alert-danger include-error">
+    Ошибка include
+
+    <dl>
+        % if (error instanceof Error) {
+            <dt>Текст ошибки</dt>
+            <dd><%= String(error) %></dd>
+            <dt>стек</dt>
+            <dd><pre><%= JSON.stringify(error.stack) %></pre></dd>
+        % } else {
+            <dt>место</dt>
+            <dd><%= error.url %></dd>
+            <dt>код http</dt>
+            <dd><%= error.status %> (<%= error.statusText %>)</dd>
+        % }
+    </dl>
+</div>

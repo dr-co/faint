@@ -9,7 +9,19 @@ FAINT.plugin('ev', function() {
             args.push(arguments[i]);
         }
         ev._queue.push({key: key, args: args});
-        if (ev._queue.length == 1) {
+        if (ev._queue.length + ev._later.length == 1) {
+            setTimeout(ev._dispatch, 1);
+        }
+    };
+
+    ev.later = function(key) {
+        key = ev._normalize_key(key);
+        var args = [];
+        for (var i = 1; i < arguments.length; i++) {
+            args.push(arguments[i]);
+        }
+        ev._later.push({key: key, args: args});
+        if (ev._queue.length + ev._later.length == 1) {
             setTimeout(ev._dispatch, 1);
         }
     };
@@ -25,10 +37,11 @@ FAINT.plugin('ev', function() {
     };
 
     ev._dispatch = function() {
-        if (!ev._queue.length)
+        if (ev._queue.length + ev._later.length == 0)
             return;
         var list = ev._queue;
-        ev._queue = [];
+        ev._queue = ev._later;
+        ev._later = [];
 
         for (var i = 0; i < list.length; i++) {
             var key = list[i].key;
@@ -42,6 +55,8 @@ FAINT.plugin('ev', function() {
                 }
             }
         }
+        if (ev._queue.length)
+            setTimeout(ev._dispatch, 1);
     };
 
     ev._normalize_key = function(key) {
@@ -53,6 +68,7 @@ FAINT.plugin('ev', function() {
     };
 
     ev._queue = [];
+    ev._later = [];
     ev._on = {};
 
     return ev;

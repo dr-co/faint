@@ -51,7 +51,7 @@ QUnit.test('ejst.raw', function(assert) {
             assert.ok(false, 'await exception');
         })
         .catch(function(e) {
-            assert.ok(e.match(/aa is not defined/), 'error message');
+            assert.ok(String(e).match(/aa is not defined/), 'error message');
         })
         .finally(done5);
 
@@ -94,6 +94,55 @@ QUnit.test('ejst.include', function(assert) {
     FAINT.ejst('test2', '% include("index.html")', {'a': 'b'})
         .then(function(result) {
             assert.equal(result, '', 'пустое значение без %=');
-            done2();
-        });
+        })
+        .finally(done2);
+    
+    
+    var done3 = assert.async();
+    FAINT.ejst('test3', '%= include("index-unknown.html")')
+        .then(function(result) {
+            assert.ok($(result).hasClass('include-error'),
+                      'ошибка рендерена');
+        })
+        .catch(function(e) {
+            assert.ok(false, 'Не должно быть ошибки');
+            console.error(e);
+        })
+        .finally(done3);
 });
+
+QUnit.test('ejst.layout', function(assert) {
+    "use strict";
+
+    assert.expect(4);
+
+    var done1 = assert.async();
+
+    FAINT.ejst('test', '%= include("test-in-layout.html", '+
+                       '{layout: "test-layout.html"})')
+        .then(function(result) {
+            assert.ok(result, 'результат с layout есть');
+            assert.ok($(result).hasClass('content'), 'контейнер');
+            assert.ok($(result).find('> div.alert').length > 0, 'вложенность');
+        })
+        .catch(function(e) {
+            assert.ok(false, 'нет ошибки');
+            console.error(e);
+        })
+        .finally(done1);
+
+    var done2 = assert.async();
+    FAINT.ejst('test', '%= include("test-in-layout.html", '+
+                       '{layout: "test-layout-error.html"})')
+        .then(function(result) {
+            assert.ok($(result).hasClass('include-error'),
+                      'ошибка include-error при неудаче подгрузки template');
+        })
+        .catch(function(e) {
+            assert.ok(false, 'нет ошибки');
+            console.error(e);
+        })
+        .finally(done2);
+
+});
+

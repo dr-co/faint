@@ -39,3 +39,40 @@ QUnit.test('ev: pub/sub', function(assert) {
 
     setTimeout(function() { FAINT.ev('test::123', 'done'); }, 250);
 });
+
+QUnit.test('ev: later', function(assert) {
+    "use strict";
+
+    var done = assert.async();
+    var received = [];
+
+    FAINT.ev.on('test-later', function(data) {
+        received.push(data);
+
+        assert.ok(true, 'received data');
+        if (received.length != 2)
+            return;
+
+
+        assert.equal(
+            JSON.stringify([1,2]),
+            JSON.stringify(received), 'events order');
+        done();
+    });
+
+    FAINT.ev.later('test-later', 2);
+    FAINT.ev('test-later', 1);
+});
+
+QUnit.test('ev: later once', function(assert) {
+    "use strict";
+
+    var done = assert.async();
+
+    FAINT.ev.on('test-later once', function(data) {
+        assert.equal(data, 345, 'received data');
+        done();
+    });
+
+    FAINT.ev.later('test-later once', 345);
+});

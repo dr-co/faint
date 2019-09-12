@@ -1,7 +1,8 @@
 // vim: set tabsize=4 et */
 /* globals Promise, FAINT */
 
-FAINT.plugin('ejst', function(state, config, defaults) {
+FAINT.plugin('ejst',
+function(state, config, defaults) {
     "use strict";
     var ejst;
 
@@ -202,7 +203,11 @@ FAINT.plugin('ejst', function(state, config, defaults) {
             ___foo = eval(btemplate);   // jshint ignore: line
         } catch (e) {
             return Promise.reject(
-                'Syntax error at template "' + name + '": ' + e);
+                new Error(
+                    'Syntax error at template "' + name + '": ' + e
+                )
+                
+            );
         }
 
         try {
@@ -214,14 +219,18 @@ FAINT.plugin('ejst', function(state, config, defaults) {
                     var pos = /.*eval.*:(\d+):(\d+)\)?$/.exec(line);
                     if (pos) {
                         return Promise.reject(
-                            'Template error at "' +
-                            name + '" (at line ' + pos[1] +
-                            '): ' + e
+                            new Error(
+                                'Template error at "' +
+                                name + '" (at line ' + pos[1] +
+                                '): ' + e
+                            )
                         );
                     }
                 }
             }
-            return Promise.reject('Template error at "' + name + '": ' + e);
+            return Promise.reject(new Error(
+                'Template error at "' + name + '": ' + e)
+            );
         }
         return Promise.all(___res).then(function(lst) { return lst.join(''); });
     };
@@ -234,19 +243,65 @@ FAINT.plugin('ejst', function(state, config, defaults) {
         };
     };
 
+    ejst.helper = function(name, cb) {
+        if (!good_identifier(name))
+            throw new Error('Bad identifier: ' + name);
+        if (config.helpers.hasOwnProperty(name))
+            throw new Error('Helper "' + name + '" has already exists');
+
+        config.helpers[name] = cb;
+    };
+
+    ejst._cfg = config;
+
+    ejst._include_error = function(e) {
+        return FAINT.bundle('include-error')
+                    .then(function(template) {
+                        return FAINT.ejst(
+                            'include-error',
+                            template,
+                            {error: e}
+                        )
+                        .then(
+                            FAINT
+                                .ejst
+                                .bytestream
+                        );
+                    });
+    };
+
     return ejst;
 },
 {
     helpers: {
         include: function(tplname, stash) {
             "use strict";
-            return FAINT.bundle(tplname)
+            if (!stash)
+                stash = {};
+            if (!stash.hasOwnProperty('layout'))
+                stash.layout = null;
+            var res = FAINT.bundle(tplname)
                     .then(function(template) {
                         return FAINT.ejst(tplname, template, stash)
-                                    .then(function(html) {
-                                        return FAINT.ejst.bytestream(html);
-                                    });
-                    });
+                                    .then(FAINT.ejst.bytestream);
+                    })
+                    .catch(FAINT.ejst._include_error);
+            if (stash.layout) {
+                var layout_tpl = [FAINT.ejst._cfg.layout_dir, stash.layout]
+                                    .join('/')
+                                    .replace(/\/+/, '/');
+                return FAINT.bundle(layout_tpl)
+                    .then(function(template) {
+                        return FAINT.ejst(
+                            stash.layout,
+                            template,
+                            {content: res}
+                        )
+                        .then(FAINT.ejst.bytestream);
+                    })
+                    .catch(FAINT.ejst._include_error);
+            }
+            return res;
         },
 
         json: function(object) {
@@ -258,7 +313,9 @@ FAINT.plugin('ejst', function(state, config, defaults) {
             "use strict";
             return JSON.stringify(object);
         },
-    }
+    },
+
+    'layout_dir': 'layout',
 },
 ['bundle']);
 
