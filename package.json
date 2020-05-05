@@ -1,0 +1,19 @@
+{
+  "name": "faint.js",
+  "version": "0.0.1",
+  "description": "Event based Embedded JS framework",
+  "main": "faint.js",
+  "repository": "git@github.com:dr-co/faint.git",
+  "author": "Dmitry Oboukhov <unera@debian.org>",
+  "license": "GPLv3",
+  "dependencies": {
+    "jquery": "3.5.1"
+  },
+  "devDependencies": {
+    "webpack": "^4.43.0",
+    "webpack-cli": "^3.3.11"
+  },
+  "scripts": {
+    "build": "webpack"
+  }
+}
